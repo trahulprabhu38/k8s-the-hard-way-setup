@@ -74,21 +74,3 @@ module "ec2" {
   root_volume_type    = "gp2"
   ebs_encrypted       = false
 }
-
-
-# ── EBS ───────────────────────────────────────────────────────────────────────
-
-module "ebs" {
-  source = "../modules/ebs"
-
-  env                       = var.env
-  control_plane_instance_id = module.ec2.control_plane_id
-  control_plane_az          = module.ec2.control_plane_az
-  worker_instance_ids       = module.ec2.worker_ids
-  worker_azs                = module.ec2.worker_azs
-
-  etcd_volume_size        = 10
-  worker_data_volume_size = 20
-  volume_type             = "gp2"
-  encrypted               = false
-}

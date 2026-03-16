@@ -68,8 +68,3 @@ variable "ebs_encrypted" {
   default     = true
 }
 
-variable "user_data" {
-  description = "Custom user data script. If null, defaults to basic K8s system prep."
-  type        = string
-  default     = null
-}
