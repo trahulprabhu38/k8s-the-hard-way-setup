@@ -31,6 +31,11 @@ EOF
   EOT
 }
 
+resource "aws_key_pair" "dev-key" {
+  key_name   = "dev-key"
+  public_key = file("${path.module}/dev-key.pub")
+}
+
 
 # ── IAM ROLE: CONTROL PLANE ──────────────────────────────────────────────────
 
@@ -159,7 +164,7 @@ resource "aws_instance" "control_plane" {
   instance_type               = var.control_plane_instance_type
   subnet_id                   = var.control_plane_subnet_id
   vpc_security_group_ids      = [var.control_plane_sg_id]
-  key_name                    = var.key_name
+  key_name                    = aws_key_pair.dev-key.key_name
   associate_public_ip_address = var.associate_public_ip
   iam_instance_profile        = aws_iam_instance_profile.control_plane.name
   user_data                   = var.user_data != null ? var.user_data : local.default_user_data
@@ -198,7 +203,7 @@ resource "aws_instance" "worker" {
   instance_type               = var.worker_instance_type
   subnet_id                   = element(var.worker_subnet_ids, count.index)
   vpc_security_group_ids      = [var.worker_sg_id]
-  key_name                    = var.key_name
+  key_name                    = aws_key_pair.dev-key.key_name
   associate_public_ip_address = var.associate_public_ip
   iam_instance_profile        = aws_iam_instance_profile.worker.name
   user_data                   = var.user_data != null ? var.user_data : local.default_user_data

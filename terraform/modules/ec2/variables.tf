@@ -24,11 +24,6 @@ variable "ami_id" {
   type        = string
 }
 
-variable "key_name" {
-  description = "Name of the EC2 key pair for SSH access"
-  type        = string
-}
-
 variable "control_plane_subnet_id" {
   description = "Subnet ID for the control plane node"
   type        = string

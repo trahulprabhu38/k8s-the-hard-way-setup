@@ -59,7 +59,6 @@ module "ec2" {
 
   env                         = var.env
   ami_id                      = data.aws_ami.ubuntu_22_04.id
-  key_name                    = var.key_name
   control_plane_instance_type = "t3.medium"
   worker_instance_type        = "t3.medium"
   worker_count                = 3
