@@ -1,0 +1,18 @@
+env            = "prod"
+cidr_block_vpc = "10.0.0.0/16"
+key_name       = "your-key-pair-name"
+
+public = {
+  az1 = { cidr = "10.0.1.0/24", az = "ap-south-1a" }
+  az2 = { cidr = "10.0.2.0/24", az = "ap-south-1b" }
+}
+
+private = {
+  az1 = { cidr = "10.0.10.0/24", az = "ap-south-1a" }
+  az2 = { cidr = "10.0.11.0/24", az = "ap-south-1b" }
+}
+
+# PROD: Restrict to your bastion host, VPN, or office IP
+allowed_ssh_cidrs      = ["YOUR_IP/32"]
+allowed_api_cidrs      = ["YOUR_IP/32"]
+allowed_nodeport_cidrs = ["10.0.0.0/16"]

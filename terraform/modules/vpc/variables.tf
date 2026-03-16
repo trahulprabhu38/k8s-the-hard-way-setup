@@ -1,16 +1,44 @@
 variable "cidr_block_vpc" {
-    description = "give a valid range for private"
+  description = "CIDR block used for the VPC"
+  type        = string
+}
+
+variable "testing" {
+  description = "this will be a bool value and marked as true if i dont need vpc"
+  type        = bool
+  default    =  true
 }
 
 variable "env" {
-    description = "specify the env type"
+  description = "Environment name (dev, staging, prod)"
+  type        = string
 }
 
-variable "public_cidr" {
-     description = "This is the CIDR block range for public subnet."
+variable "public" {
+  description = "Public subnet definitions including CIDR and availability zone"
+  type = map(object({
+    cidr = string
+    az   = string
+  }))
 }
 
-variable "private_cidr" {
-     description = "This is the CIDR block range for private subnet."
+variable "private" {
+  description = "Private subnet definitions including CIDR and availability zone"
+  type = map(object({
+    cidr = string
+    az   = string
+  }))
 }
 
+
+# public = {
+#   az1 = {
+#     cidr = "10.0.1.0/24"
+#     az   = "ap-south-1a"
+#   }
+
+#   az2 = {
+#     cidr = "10.0.2.0/24"
+#     az   = "ap-south-1b"
+#   }
+# }

@@ -1,0 +1,2 @@
+env      = "dev"
+key_name = "your-key-pair-name"

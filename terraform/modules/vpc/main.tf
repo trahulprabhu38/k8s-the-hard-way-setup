@@ -1,123 +1,150 @@
-#vpc created 
+# VPC
+
 resource "aws_vpc" "vpc" {
+  count = var.testing ? 0 : 1
+
   cidr_block           = var.cidr_block_vpc
-  tags = {
-                  Name = "vpc-${var.env}"
-    }  
   enable_dns_support   = true
   enable_dns_hostnames = true
-}
-
-#public_subnet created
-resource "aws_subnet" "public_subnet" {
- 
-  vpc_id               = aws_vpc.vpc.id
-  cidr_block           = var.public_cidr
-  #count                = var.env == "dev"? 2 : 1
 
   tags = {
-                  Name = "subnet-${var.env}"
+    Name = "vpc-${var.env}"
   }
 }
 
-#private_subnet created
-resource "aws_subnet" "private_subnet" {
-  vpc_id               = aws_vpc.vpc.id
-  cidr_block           = var.private_cidr
-  count                = var.env == "prod"? 1 : 0  
+
+# PUBLIC SUBNETS
+
+resource "aws_subnet" "public" {
+  for_each = var.testing ? {} : var.public
+
+  vpc_id                  = aws_vpc.vpc[0].id
+  cidr_block              = each.value.cidr
+  availability_zone       = each.value.az
+  map_public_ip_on_launch = true
 
   tags = {
-                  Name = "subnet-${var.env}"
+    Name = "public-${each.key}-${var.env}"
   }
 }
 
-# ---- public setup -----
 
-#public_route_tables
-resource "aws_route_table" "public_rt"{
-  vpc_id               = aws_vpc.vpc.id
+# PRIVATE SUBNETS
 
-  route {
-    cidr_block         = "0.0.0.0/0"
-    gateway_id         = aws_internet_gateway.igw.id
+resource "aws_subnet" "private" {
+  for_each = var.testing ? {} : var.private
+
+  vpc_id            = aws_vpc.vpc[0].id
+  cidr_block        = each.value.cidr
+  availability_zone = each.value.az
+
+  tags = {
+    Name = "private-${each.key}-${var.env}"
   }
 }
 
-#public_route_table_association created
-resource "aws_route_table_association" "public_rta" {
-  subnet_id            = aws_subnet.public_subnet.id
-  route_table_id       = aws_route_table.public_rt.id
-}
 
-#internet_gateway created
+# INTERNET GATEWAY
+
 resource "aws_internet_gateway" "igw" {
-  vpc_id               = aws_vpc.vpc.id
+  count = var.testing ? 0 : 1
+
+  vpc_id = aws_vpc.vpc[0].id
 
   tags = {
-                  Name = "igw-${var.env}"
+    Name = "igw-${var.env}"
   }
 }
 
-#internet_gateway_association created
-resource "aws_internet_gateway_attachment" "igwa" {
-  internet_gateway_id  = aws_internet_gateway.igw.id
-  vpc_id               = aws_vpc.vpc.id
-}
 
-# ---- private setup -----
+# PUBLIC ROUTE TABLE
 
-#public_route_tables
-resource "aws_route_table" "private_rt"{
-  vpc_id               = aws_vpc.vpc.id
-  count                = var.env == "dev"? 0 : 1 
+resource "aws_route_table" "public" {
+  count = var.testing ? 0 : 1
 
-  route {
-    cidr_block         = "0.0.0.0/0"
-    nat_gateway_id     = aws_nat_gateway.nat[0].id
+  vpc_id = aws_vpc.vpc[0].id
+
+  tags = {
+    Name = "public-rt-${var.env}"
   }
 }
 
-#public_route_table_association created
-resource "aws_route_table_association" "private_rta" {
-    
-  subnet_id            = aws_subnet.private_subnet[0].id
-  route_table_id       = aws_route_table.private_rt[0].id
-  count                = var.env == "dev"? 0 : 1 
+resource "aws_route" "public_internet" {
+  count = var.testing ? 0 : 1
+
+  route_table_id         = aws_route_table.public[0].id
+  gateway_id             = aws_internet_gateway.igw[0].id
+  destination_cidr_block = "0.0.0.0/0"
 }
 
-#primary_nat_eip created
-resource "aws_eip" "primary_nat_eip" {
-  domain               = "vpc"
-  count                = var.env == "dev"? 0 : 1 
+
+# PUBLIC ROUTE TABLE ASSOCIATION
+
+resource "aws_route_table_association" "public" {
+  for_each = var.testing ? {} : aws_subnet.public
+
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.public[0].id
 }
 
-#nat_gateway created
+
+# ELASTIC IP FOR NAT
+
+resource "aws_eip" "nat" {
+  for_each = var.testing ? {} : var.private
+
+  domain = "vpc"
+
+  tags = {
+    Name = "nat-eip-${each.key}-${var.env}"
+  }
+}
+
+# NAT GATEWAY (ONE PER AZ)
+
 resource "aws_nat_gateway" "nat" {
-  allocation_id        = aws_eip.primary_nat_eip[0].id
-  subnet_id            = aws_subnet.public_subnet.id
-  count                = var.env == "dev"? 0 : 1 
+  for_each = var.testing ? {} : var.private
+
+  allocation_id = aws_eip.nat[each.key].id
+  subnet_id     = aws_subnet.public[each.key].id
 
   tags = {
-                  Name = "nat-${var.env}"
+    Name = "nat-${each.key}-${var.env}"
   }
 
-  depends_on           = [aws_internet_gateway.igw]
+  depends_on = [aws_internet_gateway.igw]
 }
 
 
+# PRIVATE ROUTE TABLE
+
+resource "aws_route_table" "private" {
+  for_each = var.testing ? {} : var.private
+
+  vpc_id = aws_vpc.vpc[0].id
+
+  tags = {
+    Name = "private-rt-${each.key}-${var.env}"
+  }
+}
 
 
+# PRIVATE ROUTE TO NAT
+
+resource "aws_route" "private_nat" {
+  for_each = var.testing ? {} : var.private
+
+  route_table_id         = aws_route_table.private[each.key].id
+  nat_gateway_id         = aws_nat_gateway.nat[each.key].id
+  destination_cidr_block = "0.0.0.0/0"
+}
 
 
+# PRIVATE ROUTE TABLE ASSOCIATION
 
+resource "aws_route_table_association" "private" {
+  for_each = var.testing ? {} : aws_subnet.private
 
-
-
-#---- can be used to create specific routes ----
-# list "aws_route" "example" {
-#   provider = aws
-#
-#   config {
-#     route_table_id = aws_route_table.example.id
-#   }
-# }
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private[each.key].id
+}

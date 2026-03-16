@@ -1,3 +1,15 @@
+# Use the default VPC — no custom VPC needed for dev
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
 data "aws_ami" "ubuntu_22_04" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -14,16 +26,16 @@ data "aws_ami" "ubuntu_22_04" {
 }
 
 
-# ── VPC ──────────────────────────────────────────────────────────────────────
+# ── VPC (SKIPPED — testing = true) ───────────────────────────────────────────
 
 module "vpc" {
   source = "../modules/vpc"
 
   env            = var.env
-  cidr_block_vpc = var.cidr_block_vpc
-  public         = var.public
-  private        = var.private
-  testing        = false
+  cidr_block_vpc = "10.0.0.0/16" # unused when testing = true
+  public         = {}
+  private        = {}
+  testing        = true
 }
 
 
@@ -33,10 +45,10 @@ module "security_groups" {
   source = "../modules/security_groups"
 
   env                    = var.env
-  vpc_id                 = module.vpc.vpc_id
-  allowed_ssh_cidrs      = var.allowed_ssh_cidrs
-  allowed_api_cidrs      = var.allowed_api_cidrs
-  allowed_nodeport_cidrs = var.allowed_nodeport_cidrs
+  vpc_id                 = data.aws_vpc.default.id
+  allowed_ssh_cidrs      = ["0.0.0.0/0"]
+  allowed_api_cidrs      = ["0.0.0.0/0"]
+  allowed_nodeport_cidrs = ["0.0.0.0/0"]
 }
 
 
@@ -48,21 +60,20 @@ module "ec2" {
   env                         = var.env
   ami_id                      = data.aws_ami.ubuntu_22_04.id
   key_name                    = var.key_name
-  control_plane_instance_type = "t3.large"
-  worker_instance_type        = "t3.large"
+  control_plane_instance_type = "t3.medium"
+  worker_instance_type        = "t3.medium"
   worker_count                = 3
 
-  # Place nodes in private subnets (no public internet exposure)
-  control_plane_subnet_id = values(module.vpc.private_subnet_ids)[0]
-  worker_subnet_ids       = values(module.vpc.private_subnet_ids)
+  control_plane_subnet_id = data.aws_subnets.default.ids[0]
+  worker_subnet_ids       = data.aws_subnets.default.ids
 
   control_plane_sg_id = module.security_groups.control_plane_sg_id
   worker_sg_id        = module.security_groups.worker_sg_id
 
-  associate_public_ip = false
-  root_volume_size    = 50
-  root_volume_type    = "gp3"
-  ebs_encrypted       = true
+  associate_public_ip = true
+  root_volume_size    = 30
+  root_volume_type    = "gp2"
+  ebs_encrypted       = false
 }
 
 
@@ -77,9 +88,8 @@ module "ebs" {
   worker_instance_ids       = module.ec2.worker_ids
   worker_azs                = module.ec2.worker_azs
 
-  etcd_volume_size        = 20
-  worker_data_volume_size = 50
-  volume_type             = "gp3"
-  encrypted               = true
-  iops                    = 3000
+  etcd_volume_size        = 10
+  worker_data_volume_size = 20
+  volume_type             = "gp2"
+  encrypted               = false
 }
