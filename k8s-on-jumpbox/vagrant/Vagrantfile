@@ -7,7 +7,7 @@ RAM_SIZE = 16
 
 # Define how mnay CPU cores you have.
 # More powerful workers will be created if you have more
-CPU_CORES = 8
+CPU_CORES = 12
 
 # Internal network prefix for the VM network
 # See the documentation before changing this
@@ -24,7 +24,7 @@ RESOURCES = {
     1 => {
       # controlplane01 bigger since it may run e2e tests.
       "ram" => [ram_selector * 128, 2048].max(),
-      "cpu" => CPU_CORES >= 12 ? 4 : 2,
+      "cpu" => CPU_CORES >= 12 ? 4 : 2, 
     },
     2 => {
       # All additional masters get this
@@ -81,8 +81,8 @@ Vagrant.configure("2") do |config|
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
   # config.vm.box = "base"
-  config.vm.box = "ubuntu/jammy64"
-  config.vm.boot_timeout = 900
+  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.boot_timeout = 1800
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -91,14 +91,14 @@ Vagrant.configure("2") do |config|
 
   # Provision Control Nodes
   (1..NUM_CONTROL_NODES).each do |i|
-    config.vm.define "controlplane0#{i}" do |node|
+    config.vm.define "master-#{i}" do |node|
       # Name shown in the GUI
       node.vm.provider "virtualbox" do |vb|
-        vb.name = "kubernetes-ha-controlplane-#{i}"
+        vb.name = "master-#{i}"
         vb.memory = RESOURCES["control"][i > 2 ? 2 : i]["ram"]
         vb.cpus = RESOURCES["control"][i > 2 ? 2 : i]["cpu"]
       end
-      node.vm.hostname = "controlplane0#{i}"
+      node.vm.hostname = "master#{i}"
       node.vm.network :private_network, ip: IP_NW + "#{MASTER_IP_START + i}"
       node.vm.network "forwarded_port", guest: 22, host: "#{2710 + i}"
       provision_kubernetes_node node
@@ -114,8 +114,8 @@ Vagrant.configure("2") do |config|
   # Provision Load Balancer Node
   config.vm.define "loadbalancer" do |node|
     node.vm.provider "virtualbox" do |vb|
-      vb.name = "kubernetes-ha-lb"
-      vb.memory = 512
+      vb.name = "lb"
+      vb.memory = 1024
       vb.cpus = 1
     end
     node.vm.hostname = "loadbalancer"
@@ -124,13 +124,15 @@ Vagrant.configure("2") do |config|
     # Set up ssh
     node.vm.provision "setup-ssh", :type => "shell", :path => "ubuntu/ssh.sh"
     setup_dns node
+    # Install and configure haproxy
+    # node.vm.provision "setup-loadbalancer", :type => "shell", :path => "ubuntu/setup-loadbalancer.sh"
   end
 
   # Provision Worker Nodes
   (1..NUM_WORKER_NODE).each do |i|
     config.vm.define "node0#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
-        vb.name = "kubernetes-ha-node-#{i}"
+        vb.name = "node-#{i}"
         vb.memory = RESOURCES["worker"]["ram"]
         vb.cpus = RESOURCES["worker"]["cpu"]
       end
