@@ -91,14 +91,14 @@ Vagrant.configure("2") do |config|
 
   # Provision Control Nodes
   (1..NUM_CONTROL_NODES).each do |i|
-    config.vm.define "master-#{i}" do |node|
+    config.vm.define "controlplane0#{i}" do |node|
       # Name shown in the GUI
       node.vm.provider "virtualbox" do |vb|
-        vb.name = "master-#{i}"
+        vb.name = "controlplane0#{i}"
         vb.memory = RESOURCES["control"][i > 2 ? 2 : i]["ram"]
         vb.cpus = RESOURCES["control"][i > 2 ? 2 : i]["cpu"]
       end
-      node.vm.hostname = "master#{i}"
+      node.vm.hostname = "controlplane0#{i}"
       node.vm.network :private_network, ip: IP_NW + "#{MASTER_IP_START + i}"
       node.vm.network "forwarded_port", guest: 22, host: "#{2710 + i}"
       provision_kubernetes_node node
