@@ -32,3 +32,9 @@ Host controlplane02
   sudo systemctl restart kubelet                                                                                                                                  
   sudo systemctl status kubelet 
                                     
+
+
+KUBECONFIG=~/.kube/config:~/.kube/k8s-hard-way.yaml \
+kubectl config view --flatten > ~/.kube/merged-config
+
+mv ~/.kube/merged-config ~/.kube/config
